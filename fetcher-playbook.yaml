@@ -1,0 +1,24 @@
+---
+- hosts: all
+  remote_user: root
+  tasks:
+   - name: Copy fetcher to compute hosts
+     copy: src=compute-fetcher dest=/tmp/fetcher mode=0655
+     when: "'Compute' in group_names"
+
+   - name: Copy fetcher to Controllers
+     copy: src=controller-fetcher dest=/tmp/fetcher mode=0655
+     when: "'Controller' in group_names"
+
+   - name: Overcloudrc to Controllers
+     copy: src=~/overcloudrc dest=/tmp/overcloudrc mode=0655
+     when: "'Controller' in group_names"
+
+   - name: Clear results file
+     file: path=/tmp/res state=absent
+
+- hosts: all
+  remote_user: root
+  tasks:
+   - include: fetch.yaml
+     with_sequence: count=1000

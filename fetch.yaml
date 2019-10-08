@@ -1,0 +1,10 @@
+---
+- name: Run fetcher loop
+  shell: "bash /tmp/fetcher >> /tmp/res"
+  when: "'overcloud' in group_names"
+
+- name: Fetch results from host
+  fetch:
+     src: /tmp/res
+     dest: "results"
+  when: "'overcloud' in group_names"

@@ -1,0 +1,17 @@
+---
+- hosts: all
+  remote_user: root
+  tasks:
+   - name: Copy patcher to all hosts
+     copy: src=ovs-patcher.sh dest=/tmp/ovs-patcher.sh mode=0655
+     when: "'overcloud' in group_names"
+
+   - name: Patch ovs timeval value
+     shell: "bash /tmp/ovs-patcher.sh"
+     become: yes
+     when: "'overcloud' in group_names"
+
+   - name: restart ovn-controller container
+     shell: "docker restart ovn_controller"
+     become: yes
+     when: "'overcloud' in group_names"

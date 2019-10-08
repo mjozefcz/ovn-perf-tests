@@ -1,0 +1,42 @@
+#!/bin/bash
+
+function get_last_loop_time {
+    num=$(sudo tail -100 /var/log/containers/openvswitch/ovn-controller.log | grep 'Unreasonably long' | tail -1  |grep -Eo '[0-9]+ms' | sed 's/ms//g' | head -1)
+    if [[ -z "${num}" ]]; then echo 0; else echo $num; fi
+}
+
+function get_num_of_ports {
+    num=$(source /tmp/overcloudrc; neutron port-list | wc -l)
+    if [[ $num -gt 0 ]]; then echo $num; else echo 0; fi
+}
+
+function get_num_of_lflows {
+    num=$(sudo docker exec $(sudo docker ps  | grep ovn-north | awk {'print $NF'}) ovn-sbctl lflow-list | wc -l)
+    if [[ $num -gt 0 ]]; then echo $num; else echo 0; fi
+}
+
+
+function get_memory_usage {
+    num=$(sudo ps aux | awk '{mem[$11]+=int($6/1024)}; {cpuper[$11]+=$3};{memper[$11]+=$4}; END {for (i in mem) {print cpuper[i]"% ",memper[i]"% ",mem[i]" MB ",i}}' | sort -k3nr | grep ovn-controller | awk {'print $3'})
+    if [[ $num -gt 0 ]]; then echo $num; else echo 0; fi
+}
+
+function get_cpu_usage {
+    num=$(sudo ps aux | awk '{mem[$11]+=int($6/1024)}; {cpuper[$11]+=$3};{memper[$11]+=$4}; END {for (i in mem) {print cpuper[i]"% ",memper[i]"% ",mem[i]" MB ",i}}' | sort -k3nr | grep ovn-controller | awk {'print $1'} | sed 's/%//g')
+    if [[ -z "${num}" ]]; then echo 0; else echo ${num}; fi
+}
+
+function print_preamble {
+    echo 'num_of_ports,num_of_lflows,last_loop_time,mem_usage,cpu_usage'
+}
+
+function print_summary {
+    ports=$(get_num_of_ports)
+    lflows=$(get_num_of_lflows)
+    time=$(get_last_loop_time)
+    mem=$(get_memory_usage)
+    cpu=$(get_cpu_usage)
+    echo "${ports},${lflows},${time},${mem},${cpu}"
+}
+
+print_summary

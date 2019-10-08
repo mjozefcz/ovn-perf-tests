@@ -1,0 +1,8 @@
+---
+- hosts: Compute
+  remote_user: root
+  tasks:
+   - name: Clear ovs ports
+     shell: "sudo ovs-vsctl list-ports br-int | grep b_| awk {'print $1'} | xargs -I% sudo ovs-vsctl del-port br-int %"
+   - name: Clear namespaces
+     shell: "sudo ip netns list | grep -i b_|awk {'print $1'} | xargs -I% sudo ip netns del %"
