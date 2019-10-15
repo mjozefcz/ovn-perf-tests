@@ -39,4 +39,7 @@ function print_summary {
     echo "${ports},${lflows},${time},${mem},${cpu}"
 }
 
-print_summary
+while true; do 
+    print_summary >> /tmp/res
+    sleep 5
+done

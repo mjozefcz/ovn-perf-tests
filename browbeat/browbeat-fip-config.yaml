@@ -68,7 +68,7 @@ workloads:
     type: rally
     concurrency:
       - 8
-    times: 120 
+    times: 20
     scenarios:
       - name: netcreate-light-boot-ping
         enabled: true

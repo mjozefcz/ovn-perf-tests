@@ -2,20 +2,31 @@
 - hosts: all
   remote_user: root
   tasks:
+   - name: Stop fetcher process if running
+     shell: "pkill -9 -f /tmp/fetcher"
+     when: "'overcloud' in group_names"
+     ignore_errors: yes
+
    - name: Copy fetcher to compute hosts
-     copy: src=compute-fetcher dest=/tmp/fetcher mode=0655
+     copy: src=compute-fetcher dest=/tmp/fetcher mode=0755
      when: "'Compute' in group_names"
 
    - name: Copy fetcher to Controllers
-     copy: src=controller-fetcher dest=/tmp/fetcher mode=0655
+     copy: src=controller-fetcher dest=/tmp/fetcher mode=755
      when: "'Controller' in group_names"
 
    - name: Overcloudrc to Controllers
-     copy: src=~/overcloudrc dest=/tmp/overcloudrc mode=0655
+     copy: src=~/overcloudrc dest=/tmp/overcloudrc mode=755
      when: "'Controller' in group_names"
 
    - name: Clear results file
      file: path=/tmp/res state=absent
+
+   - name: Run fetcher loop
+     shell: "bash /tmp/fetcher &"
+     when: "'overcloud' in group_names"
+     async: 45
+     poll: 0
 
 - hosts: all
   remote_user: root

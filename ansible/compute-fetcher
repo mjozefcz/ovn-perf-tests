@@ -6,7 +6,7 @@ function get_last_loop_time {
 }
 
 function get_num_of_ports {
-    num=$(sudo ip a |grep tap | grep -v @ | wc -l)
+    num=$(sudo ovs-vsctl list-ports br-int |grep b_ | wc -l)
     if [[ $num -gt 0 ]]; then echo $num; else echo 0; fi
 }
 
@@ -45,4 +45,7 @@ function print_summary {
     echo "${instances},${ports},${pflows},${time},${mem},${cpu}"
 }
 
-print_summary
+while true; do 
+    print_summary >> /tmp/res
+    sleep 5
+done

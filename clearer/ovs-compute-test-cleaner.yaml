@@ -3,8 +3,14 @@
   remote_user: root
   tasks:
    - name: Clear ovs ports
-     shell: "sudo ovs-vsctl list-ports br-int | grep b_| awk {'print $1'} | xargs -I% sudo ovs-vsctl del-port br-int %"
+     shell: "sudo ovs-vsctl list-ports br-int | grep -E '(b_|tap)' | awk {'print $1'} | xargs -I% sudo ovs-vsctl del-port br-int %"
    - name: Clear namespaces
-     shell: "sudo ip netns list | grep -i b_|awk {'print $1'} | xargs -I% sudo ip netns del %"
+     shell: "sudo ip netns list | grep -E '(b_|meta)' | awk {'print $1'} | xargs -I% sudo ip netns del %"
+   - name: Clear metadata ports
+     shell: "sudo ip l | grep tap | awk {'print $2'}  | grep if2  | tr '@' ' ' | awk {'print $1'} | xargs -I% sudo  ip l d %"
    - name: Restart ovn-controller
      shell: "sudo docker restart ovn_controller"
+   - name: Stop metadatas
+     shell: "sudo docker ps |grep haproxy-ovnmeta | awk {'print $NF'}"
+   - name: Restart metadata controller
+     shell: "sudo docker restart ovn_metadata_agent"
