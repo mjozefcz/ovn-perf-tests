@@ -4,6 +4,7 @@
      src: /tmp/res
      dest: "results"
   when: "'overcloud' in group_names"
+  ignore_errors: yes
 
 - pause:
     seconds: 5

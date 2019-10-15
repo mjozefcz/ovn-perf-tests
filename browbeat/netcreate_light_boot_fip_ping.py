@@ -104,9 +104,9 @@ class CreateNetworkLightBootPing(neutron_utils.NeutronScenario, vm_utils.VMScena
 
     def _schedule(self):
         # TODO: pull the available hypervisors via API
-        hypervisors = {'compute-0.redhat.local': '192.168.24.14',
-                       'compute-1.redhat.local': '192.168.24.8',
-                       'compute-2.redhat.local': '192.168.24.24'}
+        hypervisors = {'overcloud-compute-0.localdomain': '192.168.24.8',
+                       'overcloud-compute-1.localdomain': '192.168.24.14',
+                       'overcloud-compute-2.localdomain': '192.168.24.17'}
         hpv = random.choice(list(hypervisors))
         return (hpv, hypervisors[hpv])
 

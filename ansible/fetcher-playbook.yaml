@@ -33,3 +33,4 @@
   tasks:
    - include: fetch.yaml
      with_sequence: count=1000
+     ignore_errors: yes
