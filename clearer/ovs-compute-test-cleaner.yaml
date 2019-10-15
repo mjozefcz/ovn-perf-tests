@@ -6,3 +6,5 @@
      shell: "sudo ovs-vsctl list-ports br-int | grep b_| awk {'print $1'} | xargs -I% sudo ovs-vsctl del-port br-int %"
    - name: Clear namespaces
      shell: "sudo ip netns list | grep -i b_|awk {'print $1'} | xargs -I% sudo ip netns del %"
+   - name: Restart ovn-controller
+     shell: "sudo docker restart ovn_controller"
