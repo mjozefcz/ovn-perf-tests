@@ -8,9 +8,19 @@
      shell: "sudo ip netns list | grep -E '(b_|meta)' | awk {'print $1'} | xargs -I% sudo ip netns del %"
    - name: Clear metadata ports
      shell: "sudo ip l | grep tap | awk {'print $2'}  | grep if2  | tr '@' ' ' | awk {'print $1'} | xargs -I% sudo  ip l d %"
+   - name: Clear controller log
+     shell: "sudo rm /var/log/containers/openvswitch/ovn-controller.log"
    - name: Restart ovn-controller
      shell: "sudo docker restart ovn_controller"
    - name: Stop metadatas
      shell: "sudo docker ps |grep haproxy-ovnmeta | awk {'print $NF'}"
    - name: Restart metadata controller
      shell: "sudo docker restart ovn_metadata_agent"
+
+- hosts: Controller
+  remote_user: root
+  tasks:
+   - name: Clear controller log
+     shell: "sudo rm /var/log/containers/openvswitch/ovn-controller.log"
+   - name: Restart ovn-controller
+     shell: "sudo docker restart ovn_controller"
