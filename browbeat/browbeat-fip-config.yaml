@@ -74,5 +74,5 @@ workloads:
         enabled: true
         image_name: "cirros"
         flavor_name: "m1.xtiny"
-        ext_net_id: "c88919e3-94fb-474a-baac-9a6af9e42d20"
+        ext_net_id: "5f76f436-400c-4b44-9ce3-cc231e26a1e5"
         file: rally/rally-plugins/netcreate-boot/netcreate_light_boot_fip_ping.yml

@@ -13,6 +13,6 @@ offset=$(echo "obase=10; ibase=16; ${offset}" | bc)
 offset=$((offset + 3))
 # Write new value
 # Longer than 99ms
-#echo -n -e '\x63\x00' | docker exec -i ovn_controller dd of=${FILE_TO_PATCH} obs=1 seek=${offset} conv=notrunc
+echo -n -e '\x63\x00' | docker exec -i ovn_controller dd of=${FILE_TO_PATCH} obs=1 seek=${offset} conv=notrunc
 # Longer than 9ms
-echo -n -e '\x09\x00' | docker exec -i ovn_controller dd of=${FILE_TO_PATCH} obs=1 seek=${offset} conv=notrunc
+#echo -n -e '\x09\x00' | docker exec -i ovn_controller dd of=${FILE_TO_PATCH} obs=1 seek=${offset} conv=notrunc
