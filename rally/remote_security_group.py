@@ -10,11 +10,15 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import time
+
 from rally.common import logging
 from rally.common import utils
+from rally.common import sshutils
 
 from rally.common import validation
 from rally.task import context
+from rally.task import atomic
 
 from rally_openstack import consts
 from rally_openstack import osclients
@@ -38,20 +42,6 @@ def _prepare_remote_sg(user, secgroup_name):
         rally_open = rally_open[0]
 
     rules_to_add = [
-        {
-            "protocol": "tcp",
-            "port_range_max": 65535,
-            "port_range_min": 1,
-            "remote_ip_prefix": "0.0.0.0/0",
-            "direction": "ingress"
-        },
-        {
-            "protocol": "udp",
-            "port_range_max": 65535,
-            "port_range_min": 1,
-            "remote_ip_prefix": "0.0.0.0/0",
-            "direction": "ingress"
-        },
         {
             "protocol": "icmp",
             "remote_ip_prefix": "0.0.0.0/0",
@@ -77,6 +67,11 @@ def _prepare_remote_sg(user, secgroup_name):
                 users=False)
 @context.configure(name="remote_security_group", platform="openstack", order=370)
 class RemoteScurityGroup(context.Context):
+
+    # Where to bind ports. change if needed.
+    COMPUTE_HOST='compute-1.redhat.local'
+    COMPUTE_IP='192.168.24.8'
+
     CONFIG_SCHEMA = {
         "type": "object",
         "properties": {
@@ -98,6 +93,38 @@ class RemoteScurityGroup(context.Context):
     }
 
 
+    def bind_port(self, port, subnet, neutron_client):
+        port_id = port['port']['id']
+        port_ip = port['port']['fixed_ips'][0]['ip_address']
+        port_mac = port['port']['mac_address']
+        gw_ip = subnet['subnet']['gateway_ip']
+        mask = subnet['subnet']['cidr'].split('/')[1]
+        name = "b_%s" % port_id[:8]
+
+        param_dict = {'name': name, 'port_id': port_id, 'port_ip': port_ip,
+                      'port_mac': port_mac, 'gw_ip': gw_ip, 'mask': mask}
+
+        # Open SSH Connection
+        ssh = sshutils.SSH('heat-admin', RemoteScurityGroup.COMPUTE_IP)
+
+        # Check for connectivity
+        ssh.wait(120, 1)
+
+        commands = [
+            "sudo ovs-vsctl add-port br-int %(name)s -- set Interface %(name)s type=internal -- set Interface %(name)s external_ids:iface-id=%(port_id)s external_ids:iface-status='active' external_ids:attached-mac=%(port_mac)s",
+            "sudo ip netns add %(name)s",
+            "sudo ip link set %(name)s netns %(name)s",
+            "sudo ip netns exec %(name)s ip link set %(name)s address %(port_mac)s",
+            "sudo ip netns exec %(name)s ip addr add %(port_ip)s/%(mask)s dev %(name)s",
+            "sudo ip netns exec %(name)s ip link set %(name)s up",
+            "sudo ip netns exec %(name)s ip route add default via %(gw_ip)s"]
+
+        for c in commands:
+            ssh.run(c % param_dict)
+
+        self._wait_for_port_active(neutron_client, port_id)
+
+
     def setup(self):
         self.ports = []
         net_wrapper = network_wrapper.wrap(
@@ -111,13 +138,30 @@ class RemoteScurityGroup(context.Context):
             if not self.config.get('create_ports'):
                 break
             neutron =  osclients.Clients(user['credential']).neutron()
+            subnet_id = self.context["tenants"][tenant_id]["networks"][0]['subnets'][0]
+            subnet = neutron.show_subnet(subnet_id)
             for i in range(0, self.config['num_of_ports']):
                 port = {'port': {
+                    'binding:host_id': RemoteScurityGroup.COMPUTE_HOST,
                     'name': "remote_sg_port-%i" % i,
                     'security_groups': [self.remote_sg['id']],
                     'network_id': self.context["tenants"][tenant_id]["networks"][0]['id']}}
-                self.ports.append(neutron.create_port(port))
+                port = neutron.create_port(port)
+                self.bind_port(port, subnet, neutron)
+                self.ports.append(port)
         
+    @atomic.action_timer("neutron._wait_for_port_active")
+    def _wait_for_port_active(self, neutron_client, port_id):
+        timeout = time.time() + 300 # 300 seconds
+        while True:
+            port = neutron_client.show_port(port_id)
+            if port['port']['status'] == 'ACTIVE':
+                break
+            elif time.time() > timeout:
+                raise Exception("Timeout waiting for port %s to become "
+                                "ACTIVE" % port['port']['id'])
+            time.sleep(3)
+
     def cleanup(self):
         for user, tenant_id in utils.iterate_per_tenants(
                 self.context["users"]):
