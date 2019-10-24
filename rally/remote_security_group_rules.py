@@ -30,8 +30,8 @@ def _prepare_rules(user, remote_sg, num_of_rules):
     rules_to_add = [
         {
             "protocol": "tcp",
-            "port_range_min": 80 + 10 * i,
-            "port_range_max": 89 + 10 * i,
+            "port_range_min": 81 + 10 * i,
+            "port_range_max": 85 + 10 * i,
             "remote_group_id": remote_sg,
             "direction": "ingress"
         } for i in range(0, num_of_rules)
