@@ -1,5 +1,6 @@
 {% set image_name = image_name or 'cirros' %}
 {% set flavor_name = flavor_name or 'm1.xtiny' %}
+{% set num_vms = num_vms or 1 %}
 {% set sla_max_avg_duration = sla_max_avg_duration or 60 %}
 {% set sla_max_failure = sla_max_failure or 0 %}
 {% set sla_max_seconds = sla_max_seconds or 60 %}
@@ -13,6 +14,7 @@ BrowbeatPlugin.create_network_light_boot_ping:
       image:
         name: '{{image_name}}'
       ext_net_id: '{{ext_net_id}}'
+      num_vms: {{num_vms}}
       network_create_args: {}
       router_create_args: {}
       subnet_create_args: {}
@@ -37,12 +39,6 @@ BrowbeatPlugin.create_network_light_boot_ping:
           ram: -1
       network:
         start_cidr: "10.33.0.0/24"
-      remote_security_group:
-          create_ports: True
-          num_of_ports: 30
-      remote_security_group_rules:
-          create_remote_rules: True
-          num_of_rules: 30
     sla:
       max_avg_duration: {{sla_max_avg_duration}}
       max_seconds_per_iteration: {{sla_max_seconds}}

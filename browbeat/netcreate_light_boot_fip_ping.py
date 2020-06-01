@@ -23,7 +23,6 @@ from rally.task import scenario
 from rally.task import types
 from rally.task import validation
 
-synchronized = lockutils.synchronized_with_prefix('setup-remote-sg')
 
 @types.convert(image={"type": "glance_image"}, flavor={"type": "nova_flavor"})
 @validation.add("image_valid_on_flavor", flavor_param="flavor", image_param="image")
@@ -34,7 +33,7 @@ synchronized = lockutils.synchronized_with_prefix('setup-remote-sg')
                     name="BrowbeatPlugin.create_network_light_boot_ping", platform="openstack")
 class CreateNetworkLightBootPing(neutron_utils.NeutronScenario, vm_utils.VMScenario):
 
-    def run(self, image, flavor, ext_net_id, router_create_args=None,
+    def run(self, image, flavor, ext_net_id, num_vms=1, router_create_args=None,
             network_create_args=None, subnet_create_args=None, **kwargs):
         ext_net_name = None
         if ext_net_id:
@@ -50,51 +49,50 @@ class CreateNetworkLightBootPing(neutron_utils.NeutronScenario, vm_utils.VMScena
         subnet = self._create_subnet(network, subnet_create_args or {})
         self._add_interface_router(subnet['subnet'], router['router'])
         kwargs["nics"] = [{'net-id': network['network']['id']}]
-
-        # HACK_START
-        host_id, host_ip = self._schedule()
-
-        #ext_net = self.admin_clients("neutron").show_network(ext_net_id)
-        fip = self._create_floatingip(ext_net_id)
-
-        port_args = {'binding:host_id': host_id}
-        sg_name = 'sg-remote-%s' % self.context["tenant"]["id"]
         secgroup = self.context.get("user", {}).get("secgroup")
 
-        port_args["security_groups"] = [secgroup["id"]]
-        port = self._create_port(network, port_args)
-        self._associate_fip(floatingip=fip['floatingip'], port=port['port'])
+        for i in range(num_vms):
+            # HACK_START
+            host_id, host_ip = self._schedule()
 
-        port_id = port['port']['id']
-        port_ip = port['port']['fixed_ips'][0]['ip_address']
-        port_mac = port['port']['mac_address']
-        gw_ip = subnet['subnet']['gateway_ip']
-        mask = subnet['subnet']['cidr'].split('/')[1]
-        name = "b_%s" % port_id[:8]
+            #ext_net = self.admin_clients("neutron").show_network(ext_net_id)
+            fip = self._create_floatingip(ext_net_id)
 
-        param_dict = {'name': name, 'port_id': port_id, 'port_ip': port_ip,
-                      'port_mac': port_mac, 'gw_ip': gw_ip, 'mask': mask}
+            port_args = {'binding:host_id': host_id,
+                         'security_groups': [secgroup["id"]]}
+            port = self._create_port(network, port_args)
+            self._associate_fip(floatingip=fip['floatingip'], port=port['port'])
 
-        # Open SSH Connection
-        ssh = sshutils.SSH('heat-admin', host_ip)
+            port_id = port['port']['id']
+            port_ip = port['port']['fixed_ips'][0]['ip_address']
+            port_mac = port['port']['mac_address']
+            gw_ip = subnet['subnet']['gateway_ip']
+            mask = subnet['subnet']['cidr'].split('/')[1]
+            name = "b_%s" % port_id[:8]
 
-        # Check for connectivity
-        ssh.wait(120, 1)
+            param_dict = {'name': name, 'port_id': port_id, 'port_ip': port_ip,
+                          'port_mac': port_mac, 'gw_ip': gw_ip, 'mask': mask}
 
-        commands = [
-            "sudo ovs-vsctl add-port br-int %(name)s -- set Interface %(name)s type=internal -- set Interface %(name)s external_ids:iface-id=%(port_id)s external_ids:iface-status='active' external_ids:attached-mac=%(port_mac)s",
-            "sudo ip netns add %(name)s",
-            "sudo ip link set %(name)s netns %(name)s",
-            "sudo ip netns exec %(name)s ip link set %(name)s address %(port_mac)s",
-            "sudo ip netns exec %(name)s ip addr add %(port_ip)s/%(mask)s dev %(name)s",
-            "sudo ip netns exec %(name)s ip link set %(name)s up",
-            "sudo ip netns exec %(name)s ip route add default via %(gw_ip)s"]
+            # Open SSH Connection
+            ssh = sshutils.SSH('heat-admin', host_ip)
 
-        for c in commands:
-            ssh.run(c % param_dict)
+            # Check for connectivity
+            ssh.wait(120, 1)
 
-        self._wait_for_port_active(port_id)
-        self._wait_for_ping(fip['floatingip']['floating_ip_address'])
+            commands = [
+                "sudo ovs-vsctl add-port br-int %(name)s -- set Interface %(name)s type=internal -- set Interface %(name)s external_ids:iface-id=%(port_id)s external_ids:iface-status='active' external_ids:attached-mac=%(port_mac)s",
+                "sudo ip netns add %(name)s",
+                "sudo ip link set %(name)s netns %(name)s",
+                "sudo ip netns exec %(name)s ip link set %(name)s address %(port_mac)s",
+                "sudo ip netns exec %(name)s ip addr add %(port_ip)s/%(mask)s dev %(name)s",
+                "sudo ip netns exec %(name)s ip link set %(name)s up",
+                "sudo ip netns exec %(name)s ip route add default via %(gw_ip)s"]
+
+            for c in commands:
+                ssh.run(c % param_dict)
+
+            self._wait_for_port_active(port_id)
+            self._wait_for_ping(fip['floatingip']['floating_ip_address'])
 
     @atomic.action_timer("neutron._associate_fip")
     def _associate_fip(self, floatingip, port):
@@ -104,9 +102,9 @@ class CreateNetworkLightBootPing(neutron_utils.NeutronScenario, vm_utils.VMScena
 
     def _schedule(self):
         # TODO: pull the available hypervisors via API
-        hypervisors = {'overcloud-compute-0.localdomain': '192.168.24.8',
-                       'overcloud-compute-1.localdomain': '192.168.24.14',
-                       'overcloud-compute-2.localdomain': '192.168.24.17'}
+        hypervisors = {'compute-0.redhat.local': '192.168.24.9',
+                       'compute-1.redhat.local': '192.168.24.8',
+                       'compute-2.redhat.local': '192.168.24.30'}
         hpv = random.choice(list(hypervisors))
         return (hpv, hypervisors[hpv])
 
