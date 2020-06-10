@@ -90,6 +90,7 @@ class CreateNetworkLightBootPing(neutron_utils.NeutronScenario, vm_utils.VMScena
 
             for c in commands:
                 ssh.run(c % param_dict)
+            ssh.close()
 
             self._wait_for_port_active(port_id)
             self._wait_for_ping(fip['floatingip']['floating_ip_address'])
